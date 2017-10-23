@@ -63,7 +63,7 @@ def GetFileList(ExperimentName='CTRL2016', Model='*', ReturnExperimentsFlag=Fals
 							if Year != '2010':
 								continue
 						for DataType in IniFileData[ExperimentName][Var].split(','):
-							Filename='_'.join(['aerocom3',Model,Var,DataType,Year,TSString])+'.nc'
+							Filename='_'.join([Model,Var,DataType,Year,TSString])+'.nc'
 							Files.append(Filename)
 		#elif ExperimentName == 'Remote.Sensing':
 		else:
@@ -75,7 +75,7 @@ def GetFileList(ExperimentName='CTRL2016', Model='*', ReturnExperimentsFlag=Fals
 				for TSString in TSStrings:
 					for Year in Years:
 						for DataType in IniFileData[ExperimentName][Var].split(','):
-							Filename='_'.join(['aerocom3',Model,Var,DataType,Year,TSString])+'.nc'
+							Filename='_'.join([Model,Var,DataType,Year,TSString])+'.nc'
 							Files.append(Filename)
 
 
@@ -86,22 +86,31 @@ def GetFileList(ExperimentName='CTRL2016', Model='*', ReturnExperimentsFlag=Fals
 def CheckModelDir(ModelDir, FileList, VerboseFlag=False):
 	"""check model directory for necessary files
 	
-	The directory containing the netcdf files needs to be given
+	the directory will be searched recursively, so be aware of 
+	big directory structures
 	the files are assumed to end with '.nc'
 	"""
 	import glob
+	import itertools
 
-	AllFiles=glob.glob(os.path.join(ModelDir,"*.nc"))
+	MatchingFiles=[]
+	MissedFiles=[]
+
+	#AllFiles=glob.glob(ModelDir+"/**/*.nc", recursive=True)
 
 	for File in FileList:
-		MatchFiles=glob.glob(os.path.join(ModelDir,File))
+		MatchFiles=glob.glob(os.path.join(ModelDir+'/**/',File))
 		if len(MatchFiles) >=1:
-			if VerboseFlag is True:
-				for MatchFile in MatchFiles:
-					sys.stderr.write('found '+MatchFile+'\n')
+			MatchingFiles.append(MatchFiles)
 		else:
-			sys.stderr.write('missing '+File+'\n')
+			MissedFiles.append(File)
 
+	#the following is needed since FoundFiles can be a list of lists
+	#when the file search finds more than one file matching the criterion
+	#it flattens the list of lists to a 1 dimensional list
+	MatchingFiles=list(itertools.chain.from_iterable(MatchingFiles))
+	
+	return MissedFiles, MatchingFiles
 
 
 ################################################################
@@ -134,11 +143,18 @@ if __name__ == '__main__':
 	Files=GetFileList(Experiment)
 	if ListFlag is True:
 		for File in sorted(Files):
-			sys.stdout.write(File.replace('*','MODELNAME')+'\n')
+			sys.stdout.write(File.replace('*','aerocom3_MODELNAME')+'\n')
 		sys.exit(0)
 
 	#pdb.set_trace()
-	CheckModelDir(ModelDir, Files, VerboseFlag=VerboseFlag)
+	MissedFiles, MatchingFiles = CheckModelDir(ModelDir, Files, VerboseFlag=VerboseFlag)
 	
-
+	sys.stderr.write('missing files:\n')
+	for File in sorted(MissedFiles):
+		sys.stderr.write(File+'\n')
+	
+	if VerboseFlag is True:
+		sys.stdout.write('found files in '+os.path.dirname(MatchingFiles[0])+':\n')
+		for MatchFile in sorted(MatchingFiles):
+			sys.stdout.write(os.path.basename(MatchFile)+'\n')
 
